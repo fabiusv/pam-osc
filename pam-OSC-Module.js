@@ -65,7 +65,7 @@ settings.read("midi").forEach((deviceMidi) => {
   routing[name] = value;
 });
 
-midiUtils.sendAttributeLED(routing, currentAttribute);
+//midiUtils.sendAttributeLED(routing, currentAttribute);
 midiUtils.sendPermanentFeedback(routing);
 
 
@@ -135,30 +135,7 @@ module.exports = {
           change = encoderRough ? change * 10 : change; 
           change = encoderRough ? change * 10 : change; 
           const plusMinus = change > 0 ? " + " : " - ";
-          const encoderToSend = encoder == "current" ? currentEncoder : encoder;
-          console.log("HERE")
-          // Build separate commands for Up and Down
-          let cmdString;
-          if (change > 0) {
-            switch (encoderToSend) {
-              case "1": cmdString = `Go+ DataPool 128 Macro 9`; break;
-              case "2": cmdString = `Go+ DataPool 128 Macro 14`; break;
-              case "3": cmdString = `Go+ DataPool 128 Macro 19`; break;
-              case "4": cmdString = `Go+ DataPool 128 Macro 24`; break;
-              case "5": cmdString = `Go+ DataPool 128 Macro 29`; break;
-              default:  cmdString = `None`;
-            }
-          } else {
-            const absVal = Math.abs(change);
-            switch (encoderToSend) {
-              case "1": cmdString = `Go+ DataPool 128 Macro 10`; break;
-              case "2": cmdString = `Go+ DataPool 128 Macro 15`; break;
-              case "3": cmdString = `Go+ DataPool 128 Macro 20`; break;
-              case "4": cmdString = `Go+ DataPool 128 Macro 25`; break;
-              case "5": cmdString = `Go+ DataPool 128 Macro 30`; break;
-              default:  cmdString = `Encoder${encoderToSend}Down ${absVal}`;
-            }
-          }
+          
           const encoderToSend = encoder == "current" ? currentEncoder : encoder;
           console.log("HERE")
           // Build separate commands for Up and Down
@@ -297,6 +274,23 @@ module.exports = {
           }
 
           if (config.local == "encoder" && config.encoder) {
+                      if (currentEncoder === config.encoder) {
+                          console.log("Encoder Klick: " + currentEncoder);
+                              switch (currentEncoder) {
+                                case "1": cmdString = `Go+ DataPool 128 Macro 1`; break;
+                                case "2": cmdString = `Go+ DataPool 128 Macro 2`; break;
+                                case "3": cmdString = `Go+ DataPool 128 Macro 3`; break;
+                                case "4": cmdString = `Go+ DataPool 128 Macro 4`; break;
+                                case "5": cmdString = `Go+ DataPool 128 Macro 5`; break;
+                                default:  cmdString = `None`;
+                              }
+
+            send(ip, oscPort, prefix + "/cmd", {
+            type: "s",
+            value: cmdString,
+          });
+
+                      }
                       currentEncoder = config.encoder;
                       console.log("Current Encoder: " + currentEncoder);
                       //send button led and implement functions in the corresponding Midi Utils
@@ -435,7 +429,7 @@ module.exports = {
               const selectedId = map[newAttr];
               const uniqueIds = [...new Set(Object.values(map))];
               uniqueIds.forEach(id => {
-                const cmd = `FeatureGroup ${id}`;
+                const cmd = `EncoderBank ${id}`;
                 midiUtils.sendCMDLED(routing, cmd, id === selectedId);
               });
               return;

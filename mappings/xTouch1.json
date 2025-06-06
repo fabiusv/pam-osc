@@ -383,62 +383,68 @@
         "84": {
             "old_local": "attribute",
             "old_attribute": "dimmer",
-            "cmd": "FeatureGroup 1",
+            "cmd": "EncoderBank 1",
             "minValue": 100
         },
         "85": {
-            "cmd": "FeatureGroup 2",
+            "cmd": "EncoderBank 2",
             "minValue": 100
         },
         "86": {
             "old_local": "attribute",
             "old_attribute": "tilt",
-            "cmd": "FeatureGroup 3",
+            "cmd": "EncoderBank 3",
             "minValue": 100
         },
         "87": {
             "old_local": "attribute",
             "old_attribute": "ColorRGB_R",
-            "cmd": "FeatureGroup 4",
+            "cmd": "EncoderBank 4",
             "minValue": 100
         },
         "88": {
             "old_local": "attribute",
             "old_attribute": "ColorRGB_G",
-            "cmd": "FeatureGroup 5",
+            "cmd": "EncoderBank 5",
             "minValue": 100
         },
         "89": {
             "old_local": "attribute",
             "old_attribute": "ColorRGB_B",
-            "cmd": "FeatureGroup 6",
+            "cmd": "EncoderBank 6",
             "minValue": 100
         },
         "90": {
             "old_local": "attribute",
             "old_attribute": "Zoom",
-            "cmd": "FeatureGroup 7",
+            "cmd": "EncoderBank 7",
             "minValue": 100
         },
         "91": {
             "local": "encoder",
-            "encoder": "1"
+            "encoder": "1",
+            "minValue": 100
         },
         "92": {
             "local": "encoder",
-            "encoder": "2"
+            "encoder": "2",
+            "minValue": 100
         },
         "93": {
             "local": "encoder",
-            "encoder": "3"
+            "encoder": "3",
+            "minValue": 100
         },
         "94": {
             "local": "encoder",
-            "encoder": "4"
+            "encoder": "4",
+            "minValue": 100
+            
         },
         "95": {
             "local": "encoder",
-            "encoder": "5"
+            "encoder": "5",
+            "minValue": 100
         },
         "96": {
             "cmd": "UP",
