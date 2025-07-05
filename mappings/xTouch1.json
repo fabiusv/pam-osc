@@ -253,6 +253,10 @@
             "cmd": "Freeze",
             "minValue": 100
         },
+        "45": {
+            "quicKey": "Menu",
+            "minValue": 100
+        },
         "46": {
             "cmd": "Previous Page",
             "minValue": 100
@@ -269,6 +273,10 @@
             "local": "encoderRough",
             "minValue": 100
         },
+        "51": {
+            "quicKey": "Align",
+            "minValue": 100
+        },
         "52": {
             "timecodeSelect": true,
             "minValue": 100
@@ -277,108 +285,110 @@
             "timecodePlayPause": true
         },
         "54": {
-            "exec": 191
+            "cmd": "Quickey 8670",
+            "minValue": 100
         },
         "55": {
-            "exec": 192
+            "cmd": "Quickey 8630",
+            "minValue": 100
         },
         "56": {
-            "exec": 193
+            "cmd": "Quickey 8704",
+            "minValue": 100
         },
         "57": {
-            "exec": 194
+            "cmd": "Quickey 8635",
+            "minValue": 100
         },
         "58": {
-            "exec": 195
+            "cmd": "Quickey 8622",
+            "minValue": 100
         },
         "59": {
-            "exec": 196
+            "cmd": "Quickey 8640",
+            "minValue": 100
         },
         "60": {
-            "exec": 197
+            "cmd": "Quickey 8722",
+            "minValue": 100
         },
         "61": {
-            "exec": 198
+            "cmd": "Quickey 8641",
+            "minValue": 100
         },
         "62": {
-            "exec": 291
+            "cmd": "Quickey 8687",
+            "minValue": 100
         },
         "63": {
-            "exec": 292
+            "cmd": "Quickey 8686",
+            "minValue": 100
         },
         "64": {
-            "exec": 293
+            "cmd": "Deactivate",
+            "minValue": 100
         },
         "65": {
-            "exec": 294
+            "cmd": "Quickey 8710",
+            "minValue": 100
         },
         "66": {
-            "exec": 295
+            "cmd": "Quickey 8692",
+            "minValue": 100
         },
         "67": {
-            "exec": 296
+            "cmd": "Quickey 8652",
+            "minValue": 100
         },
         "68": {
-            "exec": 297
+            "cmd": "Quickey 8715",
+            "minValue": 100
         },
         "69": {
-            "exec": 298
+            "cmd": "Tag",
+            "minValue": 100
         },
         "70": {
-            "quicKey": "Fixture",
-            "minValue": 100
+            "exec": 291
         },
         "71": {
-            "quicKey": "Channel",
-            "minValue": 100
+            "exec": 292
         },
         "72": {
-            "quicKey": "Assign",
-            "minValue": 100
+            "exec": 191
         },
         "73": {
-            "quicKey": "Time",
-            "minValue": 100
+            "exec": 192
         },
         "74": {
-            "quicKey": "Group",
-            "minValue": 100
+            "exec": 293
         },
         "75": {
-            "quicKey": "Preset",
-            "minValue": 100
+            "exec": 294
         },
         "76": {
-            "quicKey": "Sequence",
-            "minValue": 100
+            "exec": 295
         },
         "77": {
-            "quicKey": "Update",
-            "minValue": 100
+            "exec": 193
         },
         "78": {
-            "quicKey": "Store",
-            "minValue": 100
+            "exec": 194
         },
         "79": {
-            "quicKey": "Move",
-            "minValue": 100
+            "exec": 195
         },
         "80": {
-            "quicKey": "Cue",
-            "minValue": 100
+            "exec": 296
         },
         "81": {
-            "quicKey": "Edit",
-            "minValue": 100
+            "exec": 297
         },
         "82": {
-            "quicKey": "Delete",
-            "minValue": 100
+            "exec": 196
         },
         "83": {
-            "quicKey": "Please",
-            "minValue": 100
+            "exec": 197
         },
         "84": {
             "old_local": "attribute",
@@ -447,23 +457,23 @@
             "minValue": 100
         },
         "96": {
-            "cmd": "UP",
+            "cmd": "Quickey 8721",
             "minValue": 100
         },
         "97": {
-            "cmd": "DOWN",
+            "cmd": "Quickey 8639",
             "minValue": 100
         },
         "98": {
-            "cmd": "PREVIOUS",
+            "cmd": "Quickey 8696",
             "minValue": 100
         },
         "99": {
-            "cmd": "NEXT",
+            "cmd": "Quickey 8671",
             "minValue": 100
         },
         "100": {
-            "cmd": "Set",
+            "quicKey": "Set",
             "minValue": 100
         },
         "101": {
