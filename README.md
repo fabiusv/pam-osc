@@ -6,6 +6,8 @@ Features:
 - Send Midi Fader, Encoder and Button Values to Grandma3 Executor on Current Page
 - It Uses What you see in the Playback (you can configure Master, Speed, Temp, etc. in Grandma)
 - Send Commands, control Atributes and execute QuickKeys
+- Native control of the five active grandMA3 screen encoders, including fine,
+  rough, and encoder-click actions, without a separate encoder plugin or macros
 - Fader Feedback for Motorized Faders
 - LED Button Feedback for Running Sequences and Highlight, etc.
 - LED Displays with current Sequence and Cue on the xTouch.
@@ -50,4 +52,3 @@ Make Sure the IP's are all correct and the PC is the Session Master.
 - ~~update Ports in Documentation and preConfig~~
 - u~~pdate to configure IP in OSC GUI~~
 - Dynamic Attribute Encoder https://forum.malighting.com/forum/thread/9089-get-encoder-pool-in-lua-plugin
-

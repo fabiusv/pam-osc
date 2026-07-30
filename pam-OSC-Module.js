@@ -39,6 +39,13 @@ let timecode = {
 
 var prefix = "";
 var page = "01";
+const pamOscPluginTarget = '#[Plugin "pam-osc Start Stop".1]';
+
+function createPamOscEncoderCommand(action, encoder, amount) {
+  const commandArguments =
+    amount === undefined ? `${action},${encoder}` : `${action},${encoder},${amount}`;
+  return `Call ${pamOscPluginTarget} "${commandArguments}"`;
+}
 
 const ipPort = ("" + settings.read("send")).split(":");
 const ip = ipPort[0];
@@ -156,37 +163,41 @@ module.exports = {
           }
         }
 
-        // Preserve the custom DataPool 128 encoder-macro integration.
-        if (routing[port]["rltvControl"][ctrl] && routing[port]["rltvControl"][ctrl].encoder) {
-          const { encoder, posFrom, posTo, negFrom, negTo, amount } = routing[port]["rltvControl"][ctrl];
-          let change = utils.getRelativeValue(value, posFrom, posTo, negFrom, negTo) * amount;
+        // Call the encoder runtime embedded in PAM OSC directly. This replaces
+        // the generated DataPool 128 macros from the separate MIDI Encoders plugin.
+        if (
+          routing[port]["rltvControl"][ctrl] &&
+          routing[port]["rltvControl"][ctrl].encoder
+        ) {
+          const { encoder, posFrom, posTo, negFrom, negTo, amount } =
+            routing[port]["rltvControl"][ctrl];
+          const relativeChange = utils.getRelativeValue(value, posFrom, posTo, negFrom, negTo);
+          const encoderToSend = Number(encoder === "current" ? currentEncoder : encoder);
+          if (
+            !Number.isFinite(relativeChange) ||
+            !Number.isInteger(encoderToSend) ||
+            encoderToSend < 1 ||
+            encoderToSend > 5
+          ) {
+            return;
+          }
+
+          let change = relativeChange * (Number(amount) || 1);
           change = encoderFine ? change / 10 : change;
           change = encoderRough ? change * 10 : change;
-          const encoderToSend = encoder === "current" ? currentEncoder : encoder;
-          let cmdString;
-          if (change > 0) {
-            switch (encoderToSend) {
-              case "1": cmdString = `Go+ DataPool 128 Macro 9`; break;
-              case "2": cmdString = `Go+ DataPool 128 Macro 14`; break;
-              case "3": cmdString = `Go+ DataPool 128 Macro 19`; break;
-              case "4": cmdString = `Go+ DataPool 128 Macro 24`; break;
-              case "5": cmdString = `Go+ DataPool 128 Macro 29`; break;
-              default:  cmdString = `None`;
-            }
-          } else {
-            const absVal = Math.abs(change);
-            switch (encoderToSend) {
-              case "1": cmdString = `Go+ DataPool 128 Macro 10`; break;
-              case "2": cmdString = `Go+ DataPool 128 Macro 15`; break;
-              case "3": cmdString = `Go+ DataPool 128 Macro 20`; break;
-              case "4": cmdString = `Go+ DataPool 128 Macro 25`; break;
-              case "5": cmdString = `Go+ DataPool 128 Macro 30`; break;
-              default:  cmdString = `Encoder${encoderToSend}Down ${absVal}`;
-            }
+          change = Math.max(-10, Math.min(10, change));
+          if (change === 0) {
+            return;
           }
+
+          const encoderAmount = Math.round(change * 1000) / 1000;
           send(ip, oscPort, prefix + "/cmd", {
             type: "s",
-            value: cmdString,
+            value: createPamOscEncoderCommand(
+              "pamEncoderRotate",
+              encoderToSend,
+              encoderAmount
+            ),
           });
         }
       }
@@ -299,6 +310,15 @@ module.exports = {
           if (config.local == "encoder" && config.encoder) {
             currentEncoder = config.encoder;
             midiUtils.sendEncoderLED(routing, currentEncoder);
+          }
+          if (config.local == "encoderKlick") {
+            send(ip, oscPort, prefix + "/cmd", {
+              type: "s",
+              value: createPamOscEncoderCommand(
+                "pamEncoderClick",
+                Number(currentEncoder)
+              ),
+            });
           }
         }
       }
