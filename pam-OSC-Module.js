@@ -17,6 +17,7 @@
 // Todo: Refactor: This is only a temp solution
 var displayDevice = null;
 var colors = ["0;0;0;0", "0;0;0;0", "0;0;0;0", "0;0;0;0", "0;0;0;0", "0;0;0;0", "0;0;0;0", "0;0;0;0"];
+var deskLocked = false;
 
 const utils = require("./utils.js");
 const colorUtils = require("./colorUtils.js");
@@ -29,7 +30,7 @@ var routing = {};
 let encoderFine = false;
 let encoderRough = false;
 let currentAttribute = "Dim";
-let currentEncoder = "1"
+let currentEncoder = "1";
 let expandTimecode = false;
 let timecode = {
   selectedSlot: 0,
@@ -100,6 +101,24 @@ module.exports = {
   oscInFilter: function (data) {
     var { address, args, host, port } = data;
 
+    if (host === ip && address === "/status/deskLocked" && args.length > 0) {
+      const lockStatus = args[0];
+      if (lockStatus.type === "T" || lockStatus.value === true) {
+        deskLocked = true;
+      } else if (lockStatus.type === "F" || lockStatus.value === false) {
+        deskLocked = false;
+      }
+      return;
+    }
+
+    // Continue to forward note-off messages so a flash or momentary executor
+    // cannot remain active if the desk is locked while the button is held.
+    const isMidiNoteRelease = address === "/note" && args[2]?.value === 0;
+    if (deskLocked && host === "midi" && !isMidiNoteRelease) {
+      console.log("Desk is locked - blocking OSC event:", address);
+      return;
+    }
+
     if (host === "midi") {
       if (address === "/control") {
         var [channel, ctrl, value] = args.map((arg) => arg.value);
@@ -116,52 +135,34 @@ module.exports = {
         // handle relative Rotary encoders to act as Absolute
         if (routing[port]["rltvControl"][ctrl] && routing[port]["rltvControl"][ctrl].exec) {
           const { exec, currValue, posFrom, posTo, negFrom, negTo } = routing[port]["rltvControl"][ctrl];
-          var newValue = currValue + utils.getRelativeValue(value, posFrom, posTo, negFrom, negTo);
-          newValue = Math.min(Math.max(newValue, 0), 127) || 0;
-          routing[port]["rltvControl"][ctrl].currValue = newValue;
 
-          send(ip, oscPort, prefix + "/Page" + page + "/Fader" + exec, {
-            type: "i",
-            value: newValue,
-          });
+          // Playback encoders expect relative values. Other controls retain the
+          // original absolute-fader behavior.
+          if (exec > 300) {
+            const relativeValue = utils.getRelativeValue(value, posFrom, posTo, negFrom, negTo);
+            send(ip, oscPort, prefix + "/Page" + page + "/Encoder" + exec, {
+              type: "i",
+              value: relativeValue,
+            });
+          } else {
+            let newValue = currValue + utils.getRelativeValue(value, posFrom, posTo, negFrom, negTo);
+            newValue = Math.min(Math.max(newValue, 0), 127) || 0;
+            routing[port]["rltvControl"][ctrl].currValue = newValue;
+
+            send(ip, oscPort, prefix + "/Page" + page + "/Fader" + exec, {
+              type: "i",
+              value: newValue,
+            });
+          }
         }
 
-// handle Encoders
+        // Preserve the custom DataPool 128 encoder-macro integration.
         if (routing[port]["rltvControl"][ctrl] && routing[port]["rltvControl"][ctrl].encoder) {
           const { encoder, posFrom, posTo, negFrom, negTo, amount } = routing[port]["rltvControl"][ctrl];
-          console.log("Encoder: " + encoder);
           let change = utils.getRelativeValue(value, posFrom, posTo, negFrom, negTo) * amount;
           change = encoderFine ? change / 10 : change;
-          change = encoderRough ? change * 10 : change; 
-          change = encoderRough ? change * 10 : change; 
-          const plusMinus = change > 0 ? " + " : " - ";
-          const encoderToSend = encoder == "current" ? currentEncoder : encoder;
-          console.log("HERE")
-          // Build separate commands for Up and Down
-          let cmdString;
-          if (change > 0) {
-            switch (encoderToSend) {
-              case "1": cmdString = `Go+ DataPool 128 Macro 9`; break;
-              case "2": cmdString = `Go+ DataPool 128 Macro 14`; break;
-              case "3": cmdString = `Go+ DataPool 128 Macro 19`; break;
-              case "4": cmdString = `Go+ DataPool 128 Macro 24`; break;
-              case "5": cmdString = `Go+ DataPool 128 Macro 29`; break;
-              default:  cmdString = `None`;
-            }
-          } else {
-            const absVal = Math.abs(change);
-            switch (encoderToSend) {
-              case "1": cmdString = `Go+ DataPool 128 Macro 10`; break;
-              case "2": cmdString = `Go+ DataPool 128 Macro 15`; break;
-              case "3": cmdString = `Go+ DataPool 128 Macro 20`; break;
-              case "4": cmdString = `Go+ DataPool 128 Macro 25`; break;
-              case "5": cmdString = `Go+ DataPool 128 Macro 30`; break;
-              default:  cmdString = `Encoder${encoderToSend}Down ${absVal}`;
-            }
-          }
-          const encoderToSend = encoder == "current" ? currentEncoder : encoder;
-          console.log("HERE")
-          // Build separate commands for Up and Down
+          change = encoderRough ? change * 10 : change;
+          const encoderToSend = encoder === "current" ? currentEncoder : encoder;
           let cmdString;
           if (change > 0) {
             switch (encoderToSend) {
@@ -185,7 +186,6 @@ module.exports = {
           }
           send(ip, oscPort, prefix + "/cmd", {
             type: "s",
-            value: cmdString,
             value: cmdString,
           });
         }
@@ -297,11 +297,9 @@ module.exports = {
           }
 
           if (config.local == "encoder" && config.encoder) {
-                      currentEncoder = config.encoder;
-                      console.log("Current Encoder: " + currentEncoder);
-                      //send button led and implement functions in the corresponding Midi Utils
-                      midiUtils.sendEncoderLED(routing, currentEncoder);
-            }
+            currentEncoder = config.encoder;
+            midiUtils.sendEncoderLED(routing, currentEncoder);
+          }
         }
       }
       return;
@@ -338,20 +336,17 @@ module.exports = {
           midiUtils.sendNoteResponse(routing, mapping.device, mapping.midiId, value, mapping.buttonFeedbackMapper, mapping.midiChannel);
         });
       }
-       if (address?.includes("/updatePage/current")) {
+      if (address?.includes("/updatePage/current")) {
         console.log("Update Page: " + args[0].value);
-        if (address?.includes("/updatePage/current")) {
-          const tempPage = args[0].value < 10 ? "0" + args[0].value : "" + args[0].value;
+        const tempPage = args[0].value < 10 ? "0" + args[0].value : "" + args[0].value;
         
-          if (tempPage.length > 2) {
-            page = tempPage.slice(-2); 
-          } else {
-            page = tempPage;
-          }
-          //send page ID to segments here
-        
+        if (tempPage.length > 2) {
+          page = tempPage.slice(-2);
+        } else {
+          page = tempPage;
         }
-
+        // PageID refresh remains intentionally disabled for X-Touch firmware
+        // compatibility. See the startup FIXME above.
       }
       if (addressSplit[1]?.includes("masterEnabled")) {
         const mappings = routingUtils.getRoutingNoteByCMD(routing, addressSplit[2]);
@@ -407,39 +402,34 @@ module.exports = {
         });
       }
 
- 
       if (address === "/expandTimecode") {
-              expandTimecode = args[0].value;
+        expandTimecode = args[0].value;
+      }
 
-              
-      
-            }
-            
-
-       if (address === "/selectedFeatureGroup") {
-              // Only light the selected feature group LED, turn off all others by unique ID
-              const map = {
-                Dimmer: 1,
-                PanTilt: 2,
-                Gobo: 3,
-                RGB: 4,
-                CMY: 4,
-                Color: 4,
-                Beam: 5,
-                Focus: 6,
-                FIXTURE: 7,
-                Control: 7
-              };
-              const newAttr = args[0].value;
-              currentAttribute = newAttr;
-              const selectedId = map[newAttr];
-              const uniqueIds = [...new Set(Object.values(map))];
-              uniqueIds.forEach(id => {
-                const cmd = `FeatureGroup ${id}`;
-                midiUtils.sendCMDLED(routing, cmd, id === selectedId);
-              });
-              return;
-        }
+      if (address === "/selectedFeatureGroup") {
+        // Only light the selected feature group LED, turn off all others by unique ID.
+        const map = {
+          Dimmer: 1,
+          PanTilt: 2,
+          Gobo: 3,
+          RGB: 4,
+          CMY: 4,
+          Color: 4,
+          Beam: 5,
+          Focus: 6,
+          FIXTURE: 7,
+          Control: 7,
+        };
+        const newAttr = args[0].value;
+        currentAttribute = newAttr;
+        const selectedId = map[newAttr];
+        const uniqueIds = [...new Set(Object.values(map))];
+        uniqueIds.forEach((id) => {
+          const cmd = `FeatureGroup ${id}`;
+          midiUtils.sendCMDLED(routing, cmd, id === selectedId);
+        });
+        return;
+      }
 
 
       for (let device of Object.keys(routing)) {
@@ -476,7 +466,7 @@ module.exports = {
        
                      if (timecode.selectedSlot == slot) {
                        
-                       midiUtils.updateSegmentsBySlot(routing, timecode.slots[slot], !expandTimecode);;
+                       midiUtils.updateSegmentsBySlot(routing, timecode.slots[slot], !expandTimecode);
                      }
                    }
                  }

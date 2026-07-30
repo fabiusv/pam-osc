@@ -17,7 +17,6 @@ local oldColorValues = {}
 local oldNameValues = {}
 local oldExpandedTimecode = false
 local oldSelectedFeatureGroup = ""
-
 local olsMasterEnabledValue = {
     highlight = false,
     lowlight = false,
@@ -25,6 +24,7 @@ local olsMasterEnabledValue = {
     blind = false
 }
 local oldTimecodes = {}
+local oldDeskLockedStatus = false
 
 local oscEntry = 2
 
@@ -66,12 +66,31 @@ local tick = 1 / 10 -- 1/10
 local resendTick = 0
 
 local function getApereanceColor(sequence)
-    local apper = sequence["APPEARANCE"]
-    if apper ~= nil then
-        return apper['BACKR'] .. "," .. apper['BACKG'] .. "," .. apper['BACKB'] .. "," .. apper['BACKALPHA']
-    else
-        return "255,255,255,255"
+	local apper = sequence["APPEARANCE"]
+	local returnText
+
+	local function checkSquenceAppearance(apperH)
+		if apperH ~= nil then
+            if apperH['BACKR'] == 0 and apperH['BACKG'] == 0 and apperH['BACKB'] == 0 and apperH['BACKALPHA'] == 0 then
+                returnText =  "255,255,255,255"
+			else
+				returnText =  apperH['BACKR'] .. "," ..  apperH['BACKG'] .. "," ..  apperH['BACKB'] .. "," .. apperH['BACKALPHA']
+			end
+		else
+			returnText = "255,255,255,255"
+		end
+	end
+
+
+    checkSquenceAppearance(apper)
+
+	if (sequence.preferCueAppearance == true and sequence:CurrentChild()) then
+        if (sequence:CurrentChild()[1].Appearance) then
+            checkSquenceAppearance(sequence:CurrentChild()[1].Appearance)
+        end
     end
+
+  return returnText
 end
 
 local function getName(sequence)
@@ -94,6 +113,7 @@ local function main()
     local sendColors = GetVar(GlobalVars(), "sendColors") or false
     local sendNames = GetVar(GlobalVars(), "sendNames") or false
     local sendTimecode = GetVar(GlobalVars(), "sendTimecode") or false
+    local fixedPageNr = GetVar(GlobalVars(), "fixedPageNr") or 0
     local expandedTimecode = GetVar(GlobalVars(), "expandTimecode") or false
 
     Printf("start pam OSC main()")
@@ -101,6 +121,7 @@ local function main()
     Printf("sendColors: " .. (sendColors and "true" or "false"))
     Printf("sendNames: " .. (sendNames and "true" or "false"))
     Printf("sendTimecode: " .. (sendTimecode and "true" or "false"))
+    Printf("fixedPageNr: " .. fixedPageNr)
     Printf("expandedTimecode: " .. (expandedTimecode and "true" or "false"))
 
     local destPage = 1
@@ -114,12 +135,19 @@ local function main()
     end
 
     while (GetVar(GlobalVars(), "opdateOSC")) do
+        local currentDeskLocked = DeskLocked()
+        if currentDeskLocked ~= oldDeskLockedStatus then
+            oldDeskLockedStatus = currentDeskLocked
+            forceReload = true
+        end
+
         if GetVar(GlobalVars(), "forceReload") == true then
             forceReload = true
             automaticResendButtons = GetVar(GlobalVars(), "automaticResendButtons") or false
             sendColors = GetVar(GlobalVars(), "sendColors") or false
             sendNames = GetVar(GlobalVars(), "sendNames") or false
             sendTimecode = GetVar(GlobalVars(), "sendTimecode") or false
+            fixedPageNr = GetVar(GlobalVars(), "fixedPageNr") or 0
             expandedTimecode = GetVar(GlobalVars(), "expandTimecode") or false
             SetVar(GlobalVars(), "forceReload", false)
         end
@@ -136,13 +164,23 @@ local function main()
         for masterKey, masterValue in pairs(olsMasterEnabledValue) do
             local currValue = getMasterEnabled(masterKey)
             if currValue ~= masterValue then
-                Cmd('SendOSC ' .. oscEntry .. ' "/masterEnabled/' .. masterKey .. ',i,' .. (currValue and 1 or 0))
+                Cmd('SendOSC ' .. oscEntry .. ' "/masterEnabled/' .. masterKey .. ',i,' ..
+                        (currValue and 1 or 0) .. '"')
                 olsMasterEnabledValue[masterKey] = currValue
             end
         end
 
         -- Check Page
         local myPage = CurrentExecPage()
+        if fixedPageNr ~= nil and tostring(fixedPageNr) ~= "" and tonumber(fixedPageNr) and tonumber(fixedPageNr) ~= 0 then
+            local Pages = DataPool().Pages
+            local FixedPageRef = tonumber(fixedPageNr)
+
+            if Pages[FixedPageRef] then
+            myPage = Pages[FixedPageRef]
+            end
+        end
+
         if myPage.index ~= destPage then
             destPage = myPage.index
             for maKey, maValue in pairs(oldValues) do
@@ -152,7 +190,12 @@ local function main()
                 oldButtonValues[maKey] = false
             end
             forceReload = true
-            Cmd('SendOSC ' .. oscEntry .. ' "/updatePage/current,i,' .. destPage)
+        end
+
+        if forceReload == true then
+            Cmd('SendOSC ' .. oscEntry .. ' "/updatePage/current,i,' .. destPage .. '"')
+            Cmd('SendOSC ' .. oscEntry .. ' "/status/deskLocked,' ..
+                    (currentDeskLocked and "T" or "F") .. '"')
         end
 
         -- Get all Executors
@@ -219,31 +262,26 @@ local function main()
                 Cmd('SendOSC ' .. oscEntry .. '  "/Page' .. destPage .. '/Name' .. listValue .. ',s,' .. nameValue ..
                         '"')
             end
+        end
 
+        if oldExpandedTimecode ~= expandedTimecode or forceReload then
+            oldExpandedTimecode = expandedTimecode
+            Cmd('SendOSC ' .. oscEntry .. ' "/expandTimecode,' ..
+                    (expandedTimecode and "T" or "F") .. '"')
+        end
 
-            if oldExpandedTimecode ~= expandedTimecode or forceReload then
-                oldExpandedTimecode = expandedTimecode
-                if expandedTimecode then
-                    Cmd('SendOSC ' .. oscEntry .. ' "/expandTimecode,T,"')
-                else
-                    Cmd('SendOSC ' .. oscEntry .. ' "/expandTimecode,F,"')
-                end
+        -- Preserve the selected feature-group feedback used by the custom
+        -- X-Touch mapping and its button LEDs.
+        local selectedFeature = SelectedFeature()
+        if selectedFeature ~= nil and selectedFeature.name ~= nil then
+            local selectedFeatureGroup = selectedFeature.name
+            if selectedFeatureGroup ~= oldSelectedFeatureGroup or forceReload then
+                oldSelectedFeatureGroup = selectedFeatureGroup
+                Cmd('SendOSC ' .. oscEntry .. ' "/selectedFeatureGroup,s,' ..
+                        selectedFeatureGroup .. '"')
             end
-
-            
-            
         end
         
-        
-
-        -- Send Selected Attribute
-        local selectedFeatureGroup = SelectedFeature().name
-        if selectedFeatureGroup ~= oldSelectedFeatureGroup or forceReload then
-            oldSelectedFeatureGroup = selectedFeatureGroup
-            Printf(selectedFeatureGroup)
-            Cmd('SendOSC ' .. oscEntry .. ' "/selectedFeatureGroup,s,' .. selectedFeatureGroup .. '"')
-        end
-
         -- Send Timecode
         if sendTimecode then
             local slots = Root().TimecodeSlots
@@ -258,8 +296,6 @@ local function main()
                 end
             end
         end
-
-        
         
         forceReload = false
         forceReloadButtons = false
@@ -269,5 +305,6 @@ local function main()
     end
 
 end
+
 
 return main
